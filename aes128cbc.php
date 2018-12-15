@@ -30,7 +30,7 @@ SBOX IS GENERATED
 
 FIXED TO 16 BYTE BLOCK SIZE (AES STANDARD) AND CBC
 
-KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. If one or another is determined by the key length
+KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. If aes128, aes192 or aes256 is determined by the key length
 
 IV always 128
 
