@@ -501,7 +501,7 @@ class aes128cbc
 		$padded = (int) ord($text[strlen($text)-1]);
 		$padded = ($padded > 16 ? 16 : $padded);
 		$text = substr($text,0,strlen($text)-$padded);
-		return substr(rtrim($text, "\0"), 0, -1);		
+		return $text;		
 		}
 	}
 ?>
