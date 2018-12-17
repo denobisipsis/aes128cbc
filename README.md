@@ -20,3 +20,17 @@ USAGE:
 $AES=new aes128cbc;
 $AES->init($key,$iv);
 $AES->decrypt($AES->encrypt($plaintext));
+
+# RIJNDAEL
+
+YOU CAN ENCRYPT IN 16, 20,24,28 AND 32 BYTES BLOCK SIZE
+
+KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. 
+
+IV SOULD MATCH BLOCK SIZE (CBC MODE)
+
+USAGE:
+
+$RIJNDAEL_CBC=new RIJNDAEL_CBC;
+$RIJNDAEL_CBC->init($key,$iv,$block_size);
+$RIJNDAEL_CBC->decrypt($RIJNDAEL_CBC->encrypt($plaintext));
