@@ -18,7 +18,9 @@ This is PURE RIJNDAEL IMPLEMENTATION with each step explained
 USAGE:
 
 $AES=new aes128cbc;
+
 $AES->init($key,$iv);
+
 $AES->decrypt($AES->encrypt($plaintext));
 
 # RIJNDAEL
@@ -32,5 +34,7 @@ IV SOULD MATCH BLOCK SIZE (CBC MODE)
 USAGE:
 
 $RIJNDAEL_CBC=new RIJNDAEL_CBC;
+
 $RIJNDAEL_CBC->init($key,$iv,$block_size);
+
 $RIJNDAEL_CBC->decrypt($RIJNDAEL_CBC->encrypt($plaintext));
