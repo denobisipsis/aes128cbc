@@ -30,7 +30,7 @@ SBOX IS GENERATED
 
 FIXED TO 16 BYTE BLOCK SIZE (AES STANDARD) AND CBC
 
-KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. If aes128, aes192 or aes256 is determined by the key length
+KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. If one or another is determined by the key length
 
 IV always 128
 
@@ -127,13 +127,13 @@ class aes128cbc
 		{		
 		// PERFORM SBOX SUBSTITUTION
 		
-		return sprintf("%02x",$this->sbox[16*hexdec($byte[0])+hexdec($byte[1])]^$xor);
+		return sprintf("%02x",$this->sbox[hexdec($byte)]^$xor);
 		}
 
 	function sub_word($word)
 	    	{   
 	        for( $i=0; $i<4; $i++ ){
-	            $word[$i] = hexdec($this->sub_byte($word[$i]));
+	            $word[$i] = $this->sbox[hexdec($word[$i])];
 	        }
 	        return $word;
 	    	}
@@ -170,7 +170,7 @@ class aes128cbc
 					
 					// XOR WITH RCON
 					
-			                $rcon = array(($rcon[0]<<1) ^ (hexdec("11b") & -($rcon[0]>>7)),0,0,0);
+			                $rcon = array($this->multiply($rcon[0]),0,0,0);
 			
 			                for($j=0; $j<4; $j++)
 						{$word[$j] = sprintf("%02x",$word[$j]^$rcon[$j]);}	
@@ -235,11 +235,7 @@ class aes128cbc
 		
 		// COLUMN MULTIPLIERS FOR INVERSE MIXING
 		
-		$mul=array(
-			array(14,11,13,9),
-			array(9,14,11,13),
-			array(13,9,14,11),
-			array(11,13,9,14));
+		$mul=array(14,11,13,9);
 		
 		$DECRYPTED=array();
 	
@@ -306,7 +302,7 @@ class aes128cbc
 						$temp="";					
 			
 						for ($k2=0;$k2<4;$k2++)
-							{$temp^=$this->galois_multiplication($st[$k3*4+$k2],$mul[$k1][$k2]) % 256;}
+							{$temp^=$this->galois_multiplication($st[$k3*4+$k2],$mul[($k2+$k1*3)%4]) % 256;}
 						
 						$k4[$k3][$k1]=sprintf("%02x",$temp);
 						}
@@ -370,11 +366,7 @@ class aes128cbc
 		
 		// COLUMN MULTIPLIERS FOR MIXING GALOIS
 		
-		$mul=array(
-			array(2,3,1,1),
-			array(1,2,3,1),
-			array(1,1,2,3),
-			array(3,1,1,2));
+		$mul=array(2,3,1,1);
 		
 		$ENCRYPTED="";
 		
@@ -427,7 +419,7 @@ class aes128cbc
 						$temp="";		
 						for ($k2=0;$k2<4;$k2++)
 							{
-							$temp^=$this->galois_multiplication($st[$k3+4*$k2],$mul[$k1][$k2]);
+							$temp^=$this->galois_multiplication($st[$k3+4*$k2],$mul[($k2+$k1*3)%4]);
 							}
 						
 						$k4[$k3][$k1]=sprintf("%02x",$temp);
@@ -504,4 +496,13 @@ class aes128cbc
 		return rtrim($text, "\0");		
 		}
 	}
+	
+$x=new aes128cbc;
+	
+$text="En un lugar de la Mancha, de cuyo nombre no quiero acordarme...";
+$key="4f6bdaa39e2f8cb07f5e722d9edef314";
+	
+$x->init($key,$key); 
+echo ($r=$x->encrypt($text))."\n";
+echo $x->decrypt($r)."\n";
 ?>
