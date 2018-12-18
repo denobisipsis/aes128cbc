@@ -164,7 +164,7 @@ class RIJNDAEL_CBC
 	function sub_word($word)
 	    	{   
 	        for( $i=0; $i<4; $i++ ){
-	            $word[$i] = hexdec($this->sub_byte($word[$i]));
+	            $word[$i] = $this->sbox[hexdec($word[$i])];
 	        }
 	        return $word;
 	    	}
