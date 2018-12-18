@@ -337,6 +337,8 @@ class RIJNDAEL_CBC
 						
 				for ($k1=0;$k1<4;$k1++)
 					{
+					$c = $k1>$this->c ? 1 : 0;
+					
 					for ($k3=0;$k3<$this->Nb;$k3++)
 						{								
 						$temp="";					
@@ -344,7 +346,7 @@ class RIJNDAEL_CBC
 						for ($k2=0;$k2<4;$k2++)
 							{$temp^=$this->galois_multiplication($v2[$k3][$k2],$mul[($k2+$k1*3)%4]) % 256;}
 						
-						$c = $k1>$this->c ? 1 : 0;
+						
 						$state[$k1][($k3+$c+$k1) % $this->Nb]=sprintf("%02x",array_Search($temp,$this->sbox)^
 												hexdec($ky[($k1*5+4*($k3+$c))%$this->block_size]));
 						}
