@@ -32,9 +32,16 @@ $AES->decrypt($AES->encrypt($plaintext));
 
 YOU CAN ENCRYPT/DECRYPT IN 16,20,24,28 AND 32 BYTES BLOCK SIZE
 
-KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. 
+KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii. 
 
 IV SHOULD MATCH BLOCK SIZE (CBC MODE)
+
+TO IMPLEMENT
+
+Padding Oracle Attack
+Also, you normally don't want to use a (rather short) password directly as a key, but instead use a longer passphrase, and hash it with a salt (included with in the message) to derive the key. If you do this, you can also derive the initialization vector from the same two pieces of data (but in a way that they'll be different, using a key derivation function). To avoid brute-forcing your password from the encrypted file, use a slow hash function here (PBKDF-2 or bcrypt).
+
+CTR & other modes
 
 USAGE:
 
