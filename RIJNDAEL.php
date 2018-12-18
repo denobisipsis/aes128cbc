@@ -309,7 +309,8 @@ class RIJNDAEL_CBC
 					{					
 					$c = $k1>$this->c ? 1 : 0;
 		
-					$enc[$k1][($k2+$c+$k1) % $this->Nb]=sprintf("%02x",hexdec(substr($ky[$k2],2*$k1,2))^hexdec($v[$k1]));					
+					$enc[$k1][($k2+$c+$k1) % $this->Nb]=sprintf("%02x",hexdec(substr($ky[$k2],2*$k1,2))^
+										    				hexdec($v[$k1]));					
 					}			
 				}
 			
@@ -322,7 +323,8 @@ class RIJNDAEL_CBC
 			for ($k2=0;$k2<$this->Nb;$k2++)
 				{
 				for ($k1=0;$k1<4;$k1++)
-					{$enc[$k1][$k2]=sprintf("%02x",array_Search(hexdec($k[$k2][$k1]),$this->sbox)^hexdec(substr($ky[$k2],2*$k1,2)));}
+					{$enc[$k1][$k2]=sprintf("%02x",array_Search(hexdec($k[$k2][$k1]),$this->sbox)^
+											hexdec(substr($ky[$k2],2*$k1,2)));}
 				}
 				
 			$v2=$this->reord($enc);
@@ -348,7 +350,7 @@ class RIJNDAEL_CBC
 						
 						
 						$state[$k1][($k3+$c+$k1) % $this->Nb]=sprintf("%02x",array_Search($temp,$this->sbox)^
-												hexdec($ky[($k1*5+4*($k3+$c))%$this->block_size]));
+										hexdec($ky[($k1*5+4*($k3+$c))%$this->block_size]));
 						}
 					}								
 				
