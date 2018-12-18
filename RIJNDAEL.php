@@ -1,6 +1,6 @@
 <?
 /*
-*  Copyright 2018 denobisipsis
+*  Copyright XII-2018 denobisipsis
 *
 *  This program is free software; you can redistribute it and/or
 *  modify it under the terms of the GNU General Public License as
@@ -28,9 +28,9 @@ WITHOUT TABLES
 
 SBOX IS GENERATED
 
-BY DEFAULT 16 BYTE BLOCK SIZE (AES STANDARD) AND CBC, BUT YOU CAN ENCRYPT/DECRYPT IN 20,24,28 AND 32 BYTES BLOCK SIZE
+BY DEFAULT 16 BYTE BLOCK SIZE (AES STANDARD) AND CBC, BUT YOU CAN ENCRYPT IN 20,24,28 AND 32 BYTES BLOCK SIZE
 
-KEY CAN BE 128,192 OR 256 BITS, either hexadecimal or ascii. 
+KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii. 
 
 IV SHOULD MATCH BLOCK SIZE (CBC MODE)
 
@@ -39,6 +39,15 @@ USAGE:
 $RIJNDAEL_CBC=new RIJNDAEL_CBC;
 $RIJNDAEL_CBC->init($key,$iv,$block_size);
 $RIJNDAEL_CBC->decrypt($RIJNDAEL_CBC->encrypt($plaintext));
+
+TO IMPLEMENT
+
+Padding Oracle Attack
+
+Also, you normally don't want to use a (rather short) password directly as a key, but instead use a longer passphrase, and hash it with a salt (included with in the message) to derive the key. If you do this, you can also derive the initialization vector from the same two pieces of data (but in a way that they'll be different, using a key derivation function). To avoid brute-forcing your password from the encrypted file, use a slow hash function here (PBKDF-2 or bcrypt).
+
+CTR & other modes
+
 */
 
 class RIJNDAEL_CBC
@@ -57,8 +66,8 @@ class RIJNDAEL_CBC
 		if (!ctype_xdigit($key)) $key=bin2hex($key);
 		if (!ctype_xdigit($iv))  $iv=bin2hex($iv);
 		
-		if (strlen($key)!=32 and strlen($key)!=48 and strlen($key)!=64)
-			die("Key length should be 16,24 or 32 bytes");
+		if ((strlen($key)%4)!=0 or (strlen($key)<32 or strlen($key)>64))
+			die("Key length should be 16,20,24,28 or 32 bytes");
 
 		if ($iv!="")
 			if (strlen($iv)!=$block_size*2) 
@@ -320,9 +329,11 @@ class RIJNDAEL_CBC
 			
 			FOR ($ROUND=$this->Nr-2;$ROUND>=0;$ROUND--)
 				{
-				// FIRST UNMIX COLUMNS & UNSHIFT & UNSBOX
+				// UNMIX COLUMNS & UNSHIFT & UNSBOX & UNXORING WITH KEY
 				
 				$state=Array();	
+				
+				$ky=str_split($keys[$ROUND],2);	
 						
 				for ($k1=0;$k1<4;$k1++)
 					{
@@ -334,21 +345,12 @@ class RIJNDAEL_CBC
 							{$temp^=$this->galois_multiplication($v2[$k3][$k2],$mul[($k2+$k1*3)%4]) % 256;}
 						
 						$c = $k1>$this->c ? 1 : 0;
-						$state[$k1][($k3+$c+$k1) % $this->Nb]=sprintf("%02x",array_Search($temp,$this->sbox));
+						$state[$k1][($k3+$c+$k1) % $this->Nb]=sprintf("%02x",array_Search($temp,$this->sbox)^
+												hexdec($ky[($k1*5+4*($k3+$c))%$this->block_size]));
 						}
-					}				
+					}								
 				
-				$v2=$this->reord($state);
-				
-				// SECOND UNXORING WITH KEY
-				
-				$ky=str_split($keys[$ROUND],8);	
-				
-				for ($k1=0;$k1<$this->Nb;$k1++)
-					{	
-					for ($k2=0;$k2<4;$k2++)
-						{$v2[$k1][$k2]=sprintf("%02x",hexdec($v2[$k1][$k2])^hexdec(substr($ky[$k1],2*$k2,2)));}		
-					}											
+				$v2=$this->reord($state);														
 				}
 					
 			// FINAL BLOCK DECRYPTING 
@@ -534,10 +536,12 @@ function check()
 	{
 	$text="En un lugar de la Mancha, de cuyo nombre no quiero acordarme...";
 	$key32="4f6bdaa39e2f8cb07f5e722d9edef314";
+	$key40=$key32.substr($key32,24);
 	$key48=$key32.substr($key32,16);
+	$key56=$key32.substr($key32,8);
 	$key64=$key32.$key32;
 	
-	$keys=array("k32"=>$key32,"k48"=>$key48,"k64"=>$key64);
+	$keys=array("k32"=>$key32,"k40"=>$key40,"k48"=>$key48,"k56"=>$key56,"k64"=>$key64);
 	$x=new RIJNDAEL_CBC;
 	
 	foreach ($keys as $nkey=>$key)
