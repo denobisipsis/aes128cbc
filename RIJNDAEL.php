@@ -158,7 +158,7 @@ class RIJNDAEL_CBC
 		{		
 		// PERFORM SBOX SUBSTITUTION
 		
-		return sprintf("%02x",$this->sbox[16*hexdec($byte[0])+hexdec($byte[1])]^$xor);
+		return sprintf("%02x",$this->sbox[hexdec($byte)]^$xor);
 		}
 
 	function sub_word($word)
@@ -201,7 +201,7 @@ class RIJNDAEL_CBC
 					
 					// XOR WITH RCON
 					
-			                $rcon = array(($rcon[0]<<1) ^ (hexdec("11b") & -($rcon[0]>>7)),0,0,0);
+			                $rcon = array($this->multiply($rcon[0]),0,0,0);
 			
 			                for($j=0; $j<4; $j++)
 						{$word[$j] = sprintf("%02x",$word[$j]^$rcon[$j]);}	
