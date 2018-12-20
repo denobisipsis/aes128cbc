@@ -32,7 +32,7 @@ $AES->decrypt($AES->encrypt($plaintext));
 
 YOU CAN ENCRYPT/DECRYPT IN 16,20,24,28 AND 32 BYTES BLOCK SIZE
 
-KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii. 
+KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii. In theory is possible to use keys >256 with this class.
 
 IV SHOULD MATCH BLOCK SIZE (CBC MODE)
 
