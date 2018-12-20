@@ -184,7 +184,7 @@ class RIJNDAEL_CBC
 		
 		// RCON IS CALCULATED ON THE FLY
 		
-		$rcon=array(0x8d,0,0,0);
+		$rcon=0x8d;
 		
 	        while ($i < $this->Nb * ($this->Nr+1) )
 			{
@@ -201,10 +201,8 @@ class RIJNDAEL_CBC
 			                $word = $this->sub_word($word);
 					
 					// XOR WITH RCON
-					
-			                $rcon = array($this->multiply($rcon[0]),0,0,0);
 			
-			                for($j=0; $j<4; $j++) {$word[$j]^= $rcon[$j];}	
+			                $word[0]^=($rcon=$this->multiply($rcon));	
 			            }
 			    elseif ($this->Nk > 6 && $i % $this->Nk == 4)				    			    	
 			                $word = $this->sub_word($word);			            
