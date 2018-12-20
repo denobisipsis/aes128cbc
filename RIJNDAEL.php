@@ -270,11 +270,6 @@ class RIJNDAEL_CBC
 		for ($i = sizeof($todecrypt)-1; $i >=0 ; $i--)
 			{					
 			$state=array_values(unpack("C*",pack("H*",$todecrypt[$i])));
-			
-			// KEY IS LAST FROM ROTKEY
-			
-			$ky =$keys[$this->Nr];
-			$ky2=$keys[$this->Nr-1];	
 					
 			// ROUNDKEY & UNSUBS-SBOX & UNXORING WITH NEXT KEY
 	
@@ -284,7 +279,7 @@ class RIJNDAEL_CBC
 				{										
 				$c = ($k1%4)>$this->c ? 1 : 0;				
 				$index=($k1+4*($k1%4+$c))%$this->block_size;				
-				$temp[$index]=array_Search($ky[$k1]^$state[$k1],$this->sbox)^$ky2[$index];						
+				$temp[$index]=array_Search($keys[$this->Nr][$k1]^$state[$k1],$this->sbox)^$keys[$this->Nr-1][$index];						
 				}			
 			
 			$state=$temp;
@@ -292,8 +287,6 @@ class RIJNDAEL_CBC
 			FOR ($ROUND=$this->Nr-2;$ROUND>=0;$ROUND--)
 				{
 				// UNMIX COLUMNS & UNSHIFT & UNSBOX & UNXORING WITH KEY
-				
-				$ky=$keys[$ROUND];
 					
 				for ($k1=0;$k1<4;$k1++)
 					{
@@ -308,7 +301,7 @@ class RIJNDAEL_CBC
 							{$galoism^=$this->galois_multiplication($state[$k2+$k3*4],$mul[($k2+$k1*3)%4]) % 256;}
 							
 						$temp[$index]=array_Search($galoism,$this->sbox)^
-										$ky[$index];				
+										$keys[$ROUND][$index];				
 						}					
 					}
 				
