@@ -147,7 +147,7 @@ class RIJNDAEL_CBC
 
 	function multiply($a)
 		{
-		$hi_bit_set = ($a & 0x80);
+		$hi_bit_set = $a & 0x80;
 		$a <<= 1;
 		if($hi_bit_set == 0x80) 
 			$a ^= 0x1b;
@@ -158,13 +158,13 @@ class RIJNDAEL_CBC
 		{		
 		// PERFORM SBOX SUBSTITUTION
 		
-		return sprintf("%02x",$this->sbox[hexdec($byte)]^$xor);
+		return $this->sbox[$byte]^$xor;
 		}
 
 	function sub_word($word)
 	    	{   
 	        for( $i=0; $i<4; $i++ ){
-	            $word[$i] = $this->sbox[hexdec($word[$i])];
+	            $word[$i] = $this->sbox[$word[$i]];
 	        }
 	        return $word;
 	    	}
@@ -174,7 +174,8 @@ class RIJNDAEL_CBC
 		// COMPUTE ALL ROUND KEYS
 			
 	        $key_schedule=array();
-		$key=str_split($key,2);
+		
+		$key=array_values(unpack("C*",pack("H*",$key)));
 		
 	        for($i=0;  $i < $this->Nk; $i++)
 			{$key_schedule[$i] = array(($key[4*$i]),($key[4*$i+1]),($key[4*$i+2]),($key[4*$i+3]));}
@@ -203,34 +204,31 @@ class RIJNDAEL_CBC
 					
 			                $rcon = array($this->multiply($rcon[0]),0,0,0);
 			
-			                for($j=0; $j<4; $j++)
-						{$word[$j] = sprintf("%02x",$word[$j]^$rcon[$j]);}	
+			                for($j=0; $j<4; $j++) {$word[$j]^= $rcon[$j];}	
 			            }
-			    elseif ($this->Nk > 6 && $i % $this->Nk == 4)
-				    {			    	
-			                $word = $this->sub_word($word);
-			                for($j=0; $j<4; $j++)
-						{$word[$j] = sprintf("%02x",$word[$j]);}
-			            }
+			    elseif ($this->Nk > 6 && $i % $this->Nk == 4)				    			    	
+			                $word = $this->sub_word($word);			            
 				    
 			    // XORING REMAINING WORDS WITH PREVIOUS
 			    
-		            for($j=0; $j<4; $j++)
-			    	{$word[$j] = sprintf("%02x",hexdec($word[$j])^hexdec($key_schedule[$i-$this->Nk][$j]));}
+		            for($j=0; $j<4; $j++) {$word[$j]^= $key_schedule[$i-$this->Nk][$j];}
 	
 		            $key_schedule[$i] = $word;
 		            $i++;
 	        	}
-		    
+
 		    // REGROUP WORDS TO RETURN KEYS
 		    
+		    		    
 		    $key_expansion=Array();
 		    
 		    for ($k=0;$k<sizeof($key_schedule)-1;$k+=$this->Nb)
 		    	{
-			    $v2="";
-			    for ($j=$k;$j<($this->Nb+$k);$j++)
-				    {$v2.=implode($key_schedule[$j]);}
+			    $v2=array();
+			    
+			    for ($j1=$k;$j1<$this->Nb+$k;$j1++)
+			    	{for ($j2=0;$j2<4;$j2++) {$v2[]=$key_schedule[$j1][$j2];}}
+				
 			    $key_expansion[]=$v2;	
 			}
 			
@@ -243,7 +241,7 @@ class RIJNDAEL_CBC
 		
 		// reference https://www.samiam.org/galois.html
 		
-		$p = 0;$a=hexdec($a);
+		$p = 0;
 
 		for($c = 0; $c < 8; $c++) 
 			{
@@ -255,123 +253,81 @@ class RIJNDAEL_CBC
 		
 		return ($p % 256);
 		}
-
-	function reord($arr)
-		{
-		foreach ($arr as $k) ksort($k);
-		
-		$k=array();
-		for ($k1=0;$k1<$this->Nb;$k1++)
-			{	
-			for ($k2=0;$k2<4;$k2++)
-				{$k[$k1][$k2]=$arr[$k2][$k1];}		
-			}
-		return $k;
-		}
 		
 	function decrypt($todecrypt)
 		{
 		// SAME SBOX, NO INVERSE TABLE
 		
-		$keys=$this->keys;
-		
-		$DECRYPTED=array();
-	
-		$it=$this->block_size*2;
-		
+		$keys=$this->keys;		
+		$DECRYPTED=array();	
+		$it=$this->block_size*2;		
 		$fiv=$this->iv;	
 		
 		// COLUMN MULTIPLIERS FOR INVERSE MIXING
 		
-		$mul=array(14,11,13,9);	
-		
+		$mul=array(14,11,13,9);			
 		$todecrypt=str_Split($todecrypt,$it);	
 		
 		// INVERSE BLOCK DECRYPTING, FIRST IS LAST
 						
 		for ($i = sizeof($todecrypt)-1; $i >=0 ; $i--)
 			{					
-			$state=str_split($todecrypt[$i],8);
+			$state=array_values(unpack("C*",pack("H*",$todecrypt[$i])));
 			
 			// KEY IS LAST FROM ROTKEY
 			
-			$ky=str_split($keys[$this->Nr],8);
-						
-			// ROUNDKEY
+			$ky =$keys[$this->Nr];
+			$ky2=$keys[$this->Nr-1];	
+					
+			// ROUNDKEY & UNSUBS-SBOX & UNXORING WITH NEXT KEY
+	
+			$temp=array();
 			
-			$enc=array();
-				
-			for ($k2=0;$k2<$this->Nb;$k2++)
-				{
-				$v=str_split($state[$k2],2);
-				
-				for ($k1=0;$k1<4;$k1++)
-					{					
-					$c = $k1>$this->c ? 1 : 0;
-		
-					$enc[$k1][($k2+$c+$k1) % $this->Nb]=sprintf("%02x",hexdec(substr($ky[$k2],2*$k1,2))^
-										    				hexdec($v[$k1]));					
-					}			
-				}
+			for ($k1=0;$k1<$this->Nb*4;$k1++)
+				{										
+				$c = ($k1%4)>$this->c ? 1 : 0;				
+				$index=($k1+4*($k1%4+$c))%$this->block_size;				
+				$temp[$index]=array_Search($ky[$k1]^$state[$k1],$this->sbox)^$ky2[$index];						
+				}			
 			
-			$k=$this->reord($enc);
-			
-			// UNSUBS-SBOX & UNXORING WITH NEXT KEY
-			
-			$ky=str_split($keys[$this->Nr-1],8);
-																
-			for ($k2=0;$k2<$this->Nb;$k2++)
-				{
-				for ($k1=0;$k1<4;$k1++)
-					{$enc[$k1][$k2]=sprintf("%02x",array_Search(hexdec($k[$k2][$k1]),$this->sbox)^
-											hexdec(substr($ky[$k2],2*$k1,2)));}
-				}
-				
-			$v2=$this->reord($enc);
+			$state=$temp;
 			
 			FOR ($ROUND=$this->Nr-2;$ROUND>=0;$ROUND--)
 				{
 				// UNMIX COLUMNS & UNSHIFT & UNSBOX & UNXORING WITH KEY
 				
-				$state=Array();	
-				
-				$ky=str_split($keys[$ROUND],2);	
-						
+				$ky=$keys[$ROUND];
+					
 				for ($k1=0;$k1<4;$k1++)
 					{
 					$c = $k1>$this->c ? 1 : 0;
 					
 					for ($k3=0;$k3<$this->Nb;$k3++)
 						{								
-						$temp="";					
+						$galoism="";
+						$index=($k1+($k3+$c+$k1)*4)%$this->block_size;					
 			
 						for ($k2=0;$k2<4;$k2++)
-							{$temp^=$this->galois_multiplication($v2[$k3][$k2],$mul[($k2+$k1*3)%4]) % 256;}
-						
-						
-						$state[$k1][($k3+$c+$k1) % $this->Nb]=sprintf("%02x",array_Search($temp,$this->sbox)^
-										hexdec($ky[($k1*5+4*($k3+$c))%$this->block_size]));
-						}
-					}								
+							{$galoism^=$this->galois_multiplication($state[$k2+$k3*4],$mul[($k2+$k1*3)%4]) % 256;}
+							
+						$temp[$index]=array_Search($galoism,$this->sbox)^
+										$ky[$index];				
+						}					
+					}
 				
-				$v2=$this->reord($state);														
+				$state=$temp;														
 				}
 					
 			// FINAL BLOCK DECRYPTING 
 																			
-			if ($i>0) $ky=str_split($todecrypt[$i-1],8);	// UNXOR WITH PREVIOUS BLOCK
-				
-			else if ($fiv!="") $ky=str_split($fiv,8);	// UNXOR WITH IV
-				
-			else    $ky=str_split(str_repeat("\0",$this->Nb));
+			if ($i>0)          $ky=array_values(unpack("C*",pack("H*",$todecrypt[$i-1])));	// UNXOR WITH PREVIOUS BLOCK				  	
+			else if ($fiv!="") $ky=array_values(unpack("C*",pack("H*",$fiv)));		// UNXOR WITH IV				
+			else               $ky=str_split(str_repeat("\0",$this->Nb));
 							
 			$decrypted_block="";
 			
-			for ($k1=0;$k1<$this->Nb;$k1++)
-				{	
-				for ($k2=0;$k2<4;$k2++)
-					{$decrypted_block.=sprintf("%02x",hexdec($v2[$k1][$k2])^hexdec(substr($ky[$k1],2*$k2,2)));}		
-				}
+			for ($k1=0;$k1<$this->Nb*4;$k1++)
+				{$decrypted_block.=sprintf("%02x",$state[$k1]^$ky[$k1]);}
 												
 			$DECRYPTED[]=$decrypted_block;
 			}
@@ -381,39 +337,32 @@ class RIJNDAEL_CBC
 				         				
 	function encrypt($tocrypt)
 		{		
-		$keys = $this->keys;
-		$iv   = $this->iv;
-					
-		$tocrypt=bin2hex($this->pad($tocrypt));		
+		$keys = $this->keys;		
+		$iv   = $this->iv;					
+		$tocrypt=bin2hex($this->pad($tocrypt));	
+		$iv = array_values(unpack("C*",pack("H*",$iv)));	
 
 		// COLUMN MULTIPLIERS FOR MIXING GALOIS
 		
-		$mul = array(2,3,1,1);
-		
-		$ENCRYPTED = "";
-		
-		$it=$this->block_size*2;
+		$mul = array(2,3,1,1);		
+		$ENCRYPTED = "";		
+		$it=$this->block_size*2;		
+		$tocrypt=str_Split($tocrypt,$it);
 					
-		for ($i = 0; $i < strlen($tocrypt); $i+= $it)
+		for ($i = 0; $i < sizeof($tocrypt); $i++)
 			{
 			// 16 BYTES BLOCK ENCRYPTING FOR AES, RIJNDAEL SUPPORT 24 OR 32 INDEPENDENT OF KEY LENGTH
 					
-			$state=str_split(substr($tocrypt,$i,$it),8);
+			$state=array_values(unpack("C*",pack("H*",$tocrypt[$i])));
 
 			// XOR IV IF PRESENT OR IV=LAST ENCRYPTED BLOCK 
 					
 			if ($iv)
 				{
-				$iv = str_split($iv,8);$v="";
-				for ($g=0;$g<$this->Nb;$g++)
-					{
-					if (@($state[$g])) $v.=sprintf("%08x",hexdec($state[$g]) ^ hexdec($iv[$g]));
-					else		   $v.=$iv[$g];							
-					}	
-				$state=str_split($v,8);
-				}
-													
-			$ky=str_split($keys[0],8);
+				$temp=array();
+				for ($g=0;$g<$this->Nb*4;$g++) {$temp[]=$state[$g] ^ $iv[$g];}	
+				$state=$temp;
+				}			
 			
 			/*
 			https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
@@ -424,78 +373,67 @@ class RIJNDAEL_CBC
 					Nk = 4  10     12    14
 					Nk = 6  12     12    14
 					Nk = 8  14     14    14			
-			*/		
-			
+			*/
+	
 			FOR ($ROUND=1;$ROUND<$this->Nr;$ROUND++)
-				{											
+				{
+				// SBOX SUBSTITUTION & ROWS SHIFTING & XOR WITH ROUND KEY
+					
+				/*
+				Table 2: Shift offsets for different block lengths.
+				
+						4 1 2 3
+						6 1 2 3
+						8 1 3 4	
+						
+				I HAVE IMPLEMENTED THIS THROUGH C VARIABLE. BY DEFAULT SHIFTING IS STANDARD 0,1,2,3				
+				*/
+				
+				$temp0=array();
+								
 				for ($g=0;$g<$this->Nb;$g++)
-					{
-					// XOR WITH ROUND KEY
-					
-					$v=str_split(sprintf("%08x",hexdec($state[$g]) ^ hexdec($ky[$g])),2);	
-									
-					// SBOX SUBSTITUTION AND ROWS SHIFTING
-					
-					/*
-					Table 2: Shift offsets for different block lengths.
-					
-							4 1 2 3
-							6 1 2 3
-							8 1 3 4	
-							
-					I HAVE IMPLEMENTED THIS THROUGH C VARIABLE. BY DEFAULT SHIFTING IS STANDARD 0,1,2,3				
-					*/
-					
+					{						
 					for ($k1=0;$k1<4;$k1++)
 						{						
-						$c = $k1>$this->c ? 1 : 0;						
-	
-						$k0[$k1][($g-$c+$k1*($this->Nb-1))%$this->Nb]=$this->sub_byte($v[$k1]);
+						$c = $k1>$this->c ? 1 : 0;
+						$index=($g-$c+$k1*($this->Nb-1))%$this->Nb;
+						$temp0[$k1][$index]=$this->sub_byte($keys[$ROUND-1][$g*4+$k1]^$state[$g*4+$k1]);
 						}
 					}
 					
-				// REORD ARRAY
-				
-				$st="";foreach ($k0 as $k) {ksort($k);$st.=implode($k);} $st=str_split($st,2);				
-				
 				// MIX COLUMNS WITH GALOIS MULTIPLICATION 	
+				
+				$temp1=array();
 				
 				for ($k1=0;$k1<4;$k1++)
 					{
 					for ($k3=0;$k3<$this->Nb;$k3++)
 						{								
-						$temp="";		
+						$t="";		
 						for ($k2=0;$k2<4;$k2++)
-							{$temp^=$this->galois_multiplication($st[$k3+$this->Nb*$k2],$mul[($k2+$k1*3)%4]);}
+							{$t^=$this->galois_multiplication($temp0[$k2][$k3],$mul[($k2+$k1*3)%4]);}
 						
-						$k4[$k3][$k1]=sprintf("%02x",$temp);
+						$temp1[$k3*4+$k1]=$t;
 						}
 					}			
 				
-				// K4 IS THE MIX-STATE MATRIX
+				// TEMP1 IS THE MIX-STATE MATRIX				
 				
-				$state=array();foreach ($k4 as $k) $state[]=implode($k);				
-				
-				// ROT KEY WITH SBOX
-				
-				$ky=str_split($keys[$ROUND],8);
+				$state=$temp1;
 				}
+			
 			
 			// FINAL ROUND NO MIXING. FIRST XORING AND SUBSBOX, SECOND ROUNDKEY	
 				
 			for ($g=0;$g<$this->Nb;$g++)
-				{						
-				$v=str_split(sprintf("%08x",hexdec($state[$g]) ^ hexdec($ky[$g])),2);
-			
+				{			
 				for ($k1=0;$k1<4;$k1++)
 					{
 					$c = $k1>$this->c ? 1 : 0;
-					
-					$k0[$k1][($g-$c+$k1*($this->Nb-1))%$this->Nb]=$this->sub_byte($v[$k1]);
+					$index=($g-$c+$k1*($this->Nb-1))%$this->Nb;					
+					$k0[$k1][$index]=$this->sub_byte($keys[$ROUND-1][$k1+$g*4]^$state[$k1+$g*4]);
 					}
 				}
-			
-			$ky=str_split($keys[$ROUND],8);
 			
 			// ROUNDKEY TO GET FINAL BLOCK ENCRYPTING
 			
@@ -504,7 +442,7 @@ class RIJNDAEL_CBC
 			for ($k2=0;$k2<$this->Nb;$k2++)
 				{
 				for ($k1=0;$k1<4;$k1++)
-					{$enc.=sprintf("%02x",hexdec($k0[$k1][$k2])^hexdec(substr($ky[$k2],2*$k1,2)));}
+					{$enc.=sprintf("%02x",$k0[$k1][$k2]^$keys[$ROUND][$k2*4+$k1]);}
 				}
 			
 			// ENC IS ENCRYPTION OF CURRENT BLOCK
@@ -513,7 +451,7 @@ class RIJNDAEL_CBC
 						
 			// XOR NEXT BLOCK WITH THIS ENCRYPTED BLOCK
 			
-			$iv=$enc;
+			$iv=array_values(unpack("C*",pack("H*",$enc)));
 			}
 			
 		return $ENCRYPTED;
