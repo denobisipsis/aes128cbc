@@ -217,8 +217,7 @@ class RIJNDAEL_CBC
 		            $i++;
 	        	}
 
-		    // REGROUP WORDS TO RETURN KEYS
-		    
+		    // REGROUP WORDS TO RETURN KEYS		    
 		    		    
 		    $key_expansion=Array();
 		    
