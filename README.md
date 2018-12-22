@@ -43,6 +43,21 @@ KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii.
 IV SHOULD MATCH BLOCK SIZE (CBC MODE)
 GCM MODE INCORPORATED
 
+	GCM MODE
+	
+	Recommendation for Block
+	Cipher Modes of Operation:
+	Galois/Counter Mode (GCM)
+	and GMAC
+	
+	https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
+	
+	Freely adopted & modified in part the script https://github.com/Spomky-Labs/php-aes-gcm
+	
+	Specially, the GMUL function.
+	
+	Also, the ECB is computed internally
+
 USAGE:
 ```php
 $RIJNDAEL_CBC=new RIJNDAEL_CBC;
