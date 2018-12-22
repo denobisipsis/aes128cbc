@@ -93,17 +93,25 @@ Supported key lengths:
 128 bits
 
 160 bits
+
 192 bits
+
 224 bits
+
 256 bits
 
 Support block modes:
 
 ECB: Electronic Code Book
+
 CBC: Cipher Block Chaining
+
 CTR: Counter mode
+
 CFB: Cipher Feedback
+
 OFB: Output Feedback
+
 GCM: Galois Counter Mode
 
 
