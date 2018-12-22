@@ -42,7 +42,7 @@ BY DEFAULT 16 BYTE BLOCK SIZE (AES STANDARD) AND CBC, BUT YOU CAN ENCRYPT IN 20,
 KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii. 
 IV SHOULD MATCH BLOCK SIZE (CBC MODE)
 GCM MODE INCORPORATED
-
+```php
 	GCM MODE
 	
 	Recommendation for Block
@@ -57,7 +57,7 @@ GCM MODE INCORPORATED
 	Specially, the GMUL function.
 	
 	Also, the ECB is computed internally
-
+```
 USAGE:
 ```php
 $RIJNDAEL_CBC=new RIJNDAEL_CBC;
