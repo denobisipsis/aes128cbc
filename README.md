@@ -88,7 +88,7 @@ USAGE for AES-GCM
 
 	list($P, $T) = $x->decrypt($C, $A, $T,128);
 ```
-Supported key lengths:
+# Supported key lengths:
 
 128 bits
 
@@ -100,7 +100,7 @@ Supported key lengths:
 
 256 bits
 
-Support block modes:
+# Support block modes:
 
 ECB: Electronic Code Book
 
@@ -115,7 +115,7 @@ OFB: Output Feedback
 GCM: Galois Counter Mode
 
 
-TO IMPLEMENT
+# TO IMPLEMENT
 
 Padding Oracle Attack
 Also, you normally don't want to use a (rather short) password directly as a key, but instead use a longer passphrase, and hash it with a salt (included with in the message) to derive the key. If you do this, you can also derive the initialization vector from the same two pieces of data (but in a way that they'll be different, using a key derivation function). To avoid brute-forcing your password from the encrypted file, use a slow hash function here (PBKDF-2 or bcrypt).
