@@ -112,7 +112,7 @@ class RIJNDAEL_CBC
 		
 		if ((strlen($key)%4)!=0)
 			die("Key length should be 16,20,24,28 or 32 bytes");
-		elseif (strlen($key)<64 or strlen($key)>128)
+		elseif (strlen($key)<32 or strlen($key)>128)
 			die("Key length should be 16,20,24,28 or 32 bytes");
 		
 		$this->block_size = $block_size;
