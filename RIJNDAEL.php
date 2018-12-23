@@ -29,8 +29,6 @@ KEY CAN BE 128,160,192,224 OR 256 BITS, either hexadecimal or ascii.
 IV SHOULD MATCH BLOCK SIZE (CBC MODE)
 GCM MODE INCORPORATED
 
-# REQUIRED PHP 7
-
 USAGE:
 
 $RIJNDAEL_CBC=new RIJNDAEL_CBC;
@@ -133,8 +131,8 @@ class RIJNDAEL_CBC
 
 		if ($mode=="gcm") 
 			{
-			$this->K  = hex2bin($key);
-			$this->iv = hex2bin($iv);			
+			$this->K  = pack("H*",$key);
+			$this->iv = pack("H*",$iv);			
 			return;
 			}
 									
@@ -435,10 +433,13 @@ class RIJNDAEL_CBC
 		}
 										         				
 	function encrypt_cbc($tocrypt,$ecb=0)
-		{							
-		$tocrypt=bin2hex($this->pad($tocrypt));	
+		{
+		if (!$ecb) $tocrypt=$this->pad($tocrypt);							
+		$tocrypt=bin2hex($tocrypt);	
 		
-		$iv = array_values(unpack("C*",pack("H*",$this->iv)));						
+		$iv = array_values(unpack("C*",pack("H*",$this->iv)));	
+		
+						
 		$ENCRYPTED = "";		
 		$it=$this->block_size*2;		
 		$tocrypt=str_Split($tocrypt,$it);					
@@ -602,14 +603,13 @@ class RIJNDAEL_CBC
 		*/
 		$this->gcm_tag_length=$tag_length;
 		
-		if (ctype_xdigit($P)) $P=hex2bin($P);
-		if (ctype_xdigit($A)) $A=hex2bin($A);
+		if (ctype_xdigit($P)) $P=pack("H*",$P);
+		if (ctype_xdigit($A)) $A=pack("H*",$A);
 		
 		$K=$this->K;$T1=$C2="";
 		
 		$key_length=mb_strlen($K, '8bit') * 8;
-		
-			
+					
 		if (!in_Array($tag_length, [128, 120, 112, 104, 96])) print_r('Invalid tag length. Supported values are: 128, 120, 112, 104 and 96.');	
 		/**
 		
@@ -619,10 +619,10 @@ class RIJNDAEL_CBC
 	
 		*/
 						
-		if ($T!=null) {$T=hex2bin($T);$T1=$T;$C2=$P;}
-
+		if ($T!=null) {$T=pack("H*",$T);$T1=$T;$C2=$P;}
+				
 	        list($J0, $v, $a_len_padding, $H) = $this->GCMSETUP($K, $key_length, $this->iv, $A);
-	
+						
 	        $C = $C3 = $this->GCTR($K, $key_length, $this->Inc(32, $J0), $P);
 		
 		if ($T!=null) {$C=$P;}
@@ -652,6 +652,7 @@ class RIJNDAEL_CBC
 		{	
 		$this->init('ecb',bin2hex($K),bin2hex($IV),$this->block_size); 	
 		$H=pack("H*",$this->encrypt_ecb(str_repeat("\0", $this->block_size)));
+
 	        $iv_len = $this->gLength($IV);
 	
 	        if (96 === $iv_len) 
@@ -667,9 +668,9 @@ class RIJNDAEL_CBC
 			$J0 = $this->Hash($H, $hash_X);
 	        	}
 			
-	        $v = $this->calcVector($A);
+	        $v = $this->calcVector($A);		
 	        $a_len_padding = $this->addPadding($A);
-	
+
 	        return [$J0, $v, $a_len_padding, $H];
 		}
 		    
@@ -680,7 +681,7 @@ class RIJNDAEL_CBC
 	    	{return str_pad(pack('N', $this->gLength($value)), 8, "\0", STR_PAD_LEFT);}
 	
 	function gLength($x)
-	    	{return mb_strlen($x, '8bit') * 8;}
+	    	{return strlen(bin2hex($x)) * 4;}
 	    
 	function SB($s, $X, $init=0)
 	    	{
@@ -704,10 +705,9 @@ class RIJNDAEL_CBC
 		
 		initial counter block ICB
 		*/
-	        $lsb = $this->SB(null,$x,-$s_bits);
-	        $X = hexdec(bin2hex($lsb)&0xFFFFFFFF)+1;
+	        $lsb = mb_substr($x, -($s_bits/8), $s_bits/8, '8bit');					
+	        $X = hexdec(bin2hex($lsb)&0xFFFFFFFF)+1;								
 	        $res = $this->SB($this->gLength($x) - $s_bits, $x).pack('N', $X);
-	
 	        return $res;
 	    	}
 
@@ -718,11 +718,11 @@ class RIJNDAEL_CBC
 		
 		https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf#11-12
 		
-		Algorithm 1: X Y
+		Algorithm 1: X ?Y
 		Input:
 		blocks X, Y.
 		Output:
-		block X Y.
+		block X ?Y.
 		
 		Steps:
 		1. Let x0x1...x127 denote the sequence of bits in X.
@@ -761,7 +761,7 @@ class RIJNDAEL_CBC
 	    		$X.=sprintf("%032b",($d[2]+($d[1] * 0x010000)));
 	    		$c++;
 	    		}  
-	    	
+		
 	    	$R      = 0xE1;  //  constant within the algorithm for the block multiplication operation   
 	    	$mask   = 0x80;        
 	    	$Ztemp=str_split(str_repeat("0",16));     
@@ -794,7 +794,7 @@ class RIJNDAEL_CBC
 		    	}
 	
 		$Z="";foreach ($Ztemp as $z) $Z.=sprintf("%02x",$z);
-		    		    		
+		    		
 	        return pack("H*",$Z);
 	    	}
 	    	           				
@@ -805,22 +805,22 @@ class RIJNDAEL_CBC
 		applied to the bit string X with an initial counter block ICB		
 		*/
 		if (empty($X)) return '';
-	        $n = (int) ceil($this->gLength($X) / 128);
+	        $n = (int) ceil(strlen(bin2hex($X)) / 16);
 	        $CB = $Y = [];
 	        $CB[1] = $ICB;
 	        for ($i = 2; $i <= $n; $i++)		
-	            	$CB[$i] = $this->Inc(32, $CB[$i - 1]);
-	        	
+	            	$CB[$i] = $this->Inc(32, $CB[$i - 1]);	        
+				
 	        for ($i = 1; $i < $n; $i++) 
-			{
+			{			 	
 			$C = pack("H*",$this->encrypt_ecb($CB[$i]));
-			$Y[$i] = $this->SB(128, $X, ($i - 1) * 16) ^ $C;
+			$Y[$i] = $this->SB(128, $X, ($i - 1) * 16) ^ $C;			
 	        	}
 	
 	        $Xn = $this->SB(null, $X, ($n - 1) * 128);
 		$C = pack("H*",$this->encrypt_ecb($CB[$n]));
 	        $Y[$n] = $Xn ^ $this->SB($this->gLength($Xn), $C);
-	
+		
 	        return implode($Y);
 	    	}
 	
