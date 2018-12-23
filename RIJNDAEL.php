@@ -623,13 +623,15 @@ class RIJNDAEL_CBC
 	
 	        $C = $C3 = $this->GCTR($K, $key_length, $this->Inc(32, $J0), $P);
 		
-		if ($T==null) $C=bin2hex($C); else $C=bin2hex($C2);
+		if ($T!=null) {$C=$P;}
 		
 	        $u = $this->calcVector($C);
 		
 	        $c_len_padding = $this->addPadding($C);
 	
 	        $S = $this->Hash($H, $A.str_pad('', $v / 8, "\0").$C.str_pad('', $u / 8, "\0").$a_len_padding.$c_len_padding);
+		
+		if ($T==null) $C=bin2hex($C); else $C=bin2hex($C2);
 		
 	        $T = $this->SB($tag_length, $this->GCTR($K, $key_length, $J0, $S));
 		
@@ -714,11 +716,11 @@ class RIJNDAEL_CBC
 		
 		https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf#11-12
 		
-		Algorithm 1: X •Y
+		Algorithm 1: X Â•Y
 		Input:
 		blocks X, Y.
 		Output:
-		block X •Y.
+		block X Â•Y.
 		
 		Steps:
 		1. Let x0x1...x127 denote the sequence of bits in X.
