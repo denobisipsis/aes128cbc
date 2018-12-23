@@ -70,16 +70,16 @@ USAGE for AES-GCM
 ```php
 	$x=new RIJNDAEL_CBC; 
 	
-	$K = ('feffe9928665731c6d6a8f9467308308feffe9928665731cfeffe9928665731c6d6a8f9467308308feffe9928665731c');
+	$K = 'feffe9928665731c6d6a8f9467308308feffe9928665731cfeffe9928665731c6d6a8f9467308308feffe9928665731c';
 
 	// The data to encrypt (can be null for authentication)
-	$P = ('d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39');
+	$P = 'd9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39';
 
 	// Additional Authenticated Data
-	$A = ('feedfacedeadbeeffeedfacedeadbeefabaddad2');
+	$A = 'feedfacedeadbeeffeedfacedeadbeefabaddad2';
 
 	// Initialization Vector
-	$IV = ('cafebabefacedbaddecaf888');
+	$IV = 'cafebabefacedbaddecaf888';
 
 	$x->init("gcm",$K,$IV,16);
 	
@@ -90,6 +90,10 @@ USAGE for AES-GCM
 
 	list($P, $T) = $x->decrypt($C, $A, $T,128);
 ```
+# THERE IS A TEST to validate THIS AES-GCM, SIMPLY RUN THIS SCRIPT
+
+AES GCM test vectors from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
+
 # Supported key lengths:
 
 128 bits
