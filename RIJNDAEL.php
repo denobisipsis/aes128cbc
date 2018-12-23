@@ -39,16 +39,16 @@ USAGE for AES-GCM
 
 	$x=new RIJNDAEL_CBC; 
 	
-	$K = ('feffe9928665731c6d6a8f9467308308feffe9928665731cfeffe9928665731c6d6a8f9467308308feffe9928665731c');
+	$K = 'feffe9928665731c6d6a8f9467308308feffe9928665731cfeffe9928665731c6d6a8f9467308308feffe9928665731c';
 
 	// The data to encrypt (can be null for authentication)
-	$P = ('d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39');
+	$P = 'd9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39';
 
 	// Additional Authenticated Data
-	$A = ('feedfacedeadbeeffeedfacedeadbeefabaddad2');
+	$A = 'feedfacedeadbeeffeedfacedeadbeefabaddad2';
 
 	// Initialization Vector
-	$IV = ('cafebabefacedbaddecaf888');
+	$IV = 'cafebabefacedbaddecaf888';
 
 	$x->init("gcm",$K,$IV,16);
 	
@@ -58,6 +58,10 @@ USAGE for AES-GCM
 	list($C, $T) = $x->encrypt($P, $A, "",128);
 
 	list($P, $T) = $x->decrypt($C, $A, $T,128);
+	
+THERE IS A TEST to validate THIS AES-GCM, SIMPLY RUN THIS SCRIPT
+
+
 
 Supported key lengths:
 
@@ -161,7 +165,7 @@ class RIJNDAEL_CBC
 		
 		if ($this->gcm_tag_length) $mode="gcm";
 		
-		echo "\nRIJNDAEL BLOCK ".($block_size*8)." KEY ".(strlen($key)*2)." MODE $mode\n";	
+		//echo "\nRIJNDAEL BLOCK ".($block_size*8)." KEY ".(strlen($key)*2)." MODE $mode\n";	
 		}
 		
 	function rOTL8($x,$shift) 
@@ -601,36 +605,28 @@ class RIJNDAEL_CBC
 		/**
 		Same for decrypting with the T value
 		*/
+		
 		$this->gcm_tag_length=$tag_length;
 		
 		if (ctype_xdigit($P)) $P=pack("H*",$P);
 		if (ctype_xdigit($A)) $A=pack("H*",$A);
 		
-		$K=$this->K;$T1=$C2="";
-		
+		$K=$this->K;$T1=$C2="";		
 		$key_length=mb_strlen($K, '8bit') * 8;
 					
 		if (!in_Array($tag_length, [128, 120, 112, 104, 96])) print_r('Invalid tag length. Supported values are: 128, 120, 112, 104 and 96.');	
-		/**
-		
-		To check, but it works with 160 & 224 too
-		
+		/**		
+		To check, but it works with 160 & 224 too		
 		if (!in_Array($key_length, [128, 192, 256])) print_r('Bad key encryption key length. Supported values are: 128, 192 and 256.');	
-	
 		*/
-						
-		if ($T!=null) {$T=pack("H*",$T);$T1=$T;$C2=$P;}
 				
-	        list($J0, $v, $a_len_padding, $H) = $this->GCMSETUP($K, $key_length, $this->iv, $A);
-						
+	        list($J0, $v, $a_len_padding, $H) = $this->GCMSETUP($K, $key_length, $this->iv, $A);						
 	        $C = $C3 = $this->GCTR($K, $key_length, $this->Inc(32, $J0), $P);
 		
-		if ($T!=null) {$C=$P;}
+		if ($T!=null) {$C=$C2=$P;$T1=$T=pack("H*",$T);}
 		
-	        $u = $this->calcVector($C);
-		
-	        $c_len_padding = $this->addPadding($C);
-	
+	        $u = $this->calcVector($C);		
+	        $c_len_padding = $this->addPadding($C);	
 	        $S = $this->Hash($H, $A.str_pad('', $v / 8, "\0").$C.str_pad('', $u / 8, "\0").$a_len_padding.$c_len_padding);
 		
 		if ($T==null) $C=bin2hex($C); else $C=bin2hex($C2);
@@ -639,20 +635,18 @@ class RIJNDAEL_CBC
 		
 		if ($T1!=$T and $C2) print_r('Unable to decrypt or to verify the tag.');		
 		
-		$T=bin2hex($T);
-		
 		$this->init("gcm",bin2hex($this->K),$this->iv_gcm);
 		
 		if ($C2) $C = $C3;
 		
-	        return [$C, $T];
+	        return [$C, bin2hex($T)];
 	    	}
 			        
 	function GCMSETUP($K, $key_length, $IV, $A)
 		{	
 		$this->init('ecb',bin2hex($K),bin2hex($IV),$this->block_size); 	
 		$H=pack("H*",$this->encrypt_ecb(str_repeat("\0", $this->block_size)));
-
+		
 	        $iv_len = $this->gLength($IV);
 	
 	        if (96 === $iv_len) 
@@ -692,8 +686,7 @@ class RIJNDAEL_CBC
 			bit string consisting of the s RIGHT-most bits of the bit string X		
 		*/
 		
-		if ($s!=null) $s=$s/8; else $init=$init/8;
-			
+		if ($s!=null) $s=$s/8; else $init=$init/8;			
 	        return mb_substr($X, $init, $s, '8bit');
 	    	}
 	
@@ -705,10 +698,9 @@ class RIJNDAEL_CBC
 		
 		initial counter block ICB
 		*/
-	        $lsb = mb_substr($x, -($s_bits/8), $s_bits/8, '8bit');					
-	        $X = hexdec(bin2hex($lsb)&0xFFFFFFFF)+1;								
-	        $res = $this->SB($this->gLength($x) - $s_bits, $x).pack('N', $X);
-	        return $res;
+	        $lsb = mb_substr($x, -($s_bits/8), $s_bits/8, '8bit');								
+		$X = @array_shift(unpack("L",strrev($lsb))) + 1;
+	        return $this->SB($this->gLength($x) - $s_bits, $x).pack('N', $X);
 	    	}
 
 	function GMUL($X, $Y)
@@ -768,33 +760,29 @@ class RIJNDAEL_CBC
 	          
 	    	for($i=0;$i<128;$i++)
 		    	{ 
-		        if ($X[$i])	          		    
-		          	for($j=0;$j<16;$j++) $Ztemp[$j]^=$V[$j]; 	          	
+		        if ($X[$i])	for($j=0;$j<16;$j++) $Ztemp[$j]^=$V[$j]; 
 			
+			// SAVE V-LSB
+				          				
 			$LSB=$V[15];
 			
 			// RIGHTSHIFT V
 			
-			$V[15]>>=1;
-			
+			$V[15]>>=1;			
 		        for($j=1;$j<16;$j++)
 		            {			
-		            if ($V[15-$j] & 1)
-		                $V[16-$j] |= 0x80;
-				
+		            if ($V[15-$j] & 1)	$V[16-$j] |= 0x80;				
 		            $V[15-$j]>>=1;          
 		            }
 			
-			// CHECK IF LSB TO XOR
+			// CHECK IF V-LSB TO XOR
 				    		
-		        if ($LSB & 1)
-			        $V[0]^=$R;  
-				
+		        if ($LSB & 1)	$V[0]^=$R;  				
 		        if(($mask >>=1)==0) $mask=0x80;
 		    	}
 	
 		$Z="";foreach ($Ztemp as $z) $Z.=sprintf("%02x",$z);
-		    		
+			    		
 	        return pack("H*",$Z);
 	    	}
 	    	           				
@@ -804,24 +792,21 @@ class RIJNDAEL_CBC
 		output of the GCTR function for a given block cipher with key K
 		applied to the bit string X with an initial counter block ICB		
 		*/
-		if (empty($X)) return '';
-	        $n = (int) ceil(strlen(bin2hex($X)) / 16);
-	        $CB = $Y = [];
-	        $CB[1] = $ICB;
-	        for ($i = 2; $i <= $n; $i++)		
-	            	$CB[$i] = $this->Inc(32, $CB[$i - 1]);	        
-				
-	        for ($i = 1; $i < $n; $i++) 
-			{			 	
-			$C = pack("H*",$this->encrypt_ecb($CB[$i]));
-			$Y[$i] = $this->SB(128, $X, ($i - 1) * 16) ^ $C;			
-	        	}
-	
-	        $Xn = $this->SB(null, $X, ($n - 1) * 128);
-		$C = pack("H*",$this->encrypt_ecb($CB[$n]));
-	        $Y[$n] = $Xn ^ $this->SB($this->gLength($Xn), $C);
 		
-	        return implode($Y);
+		if (empty($X)) return '';
+	        $n = (int) ceil(strlen(bin2hex($X))/32);			
+	        $Y = "";
+	        $CB = $ICB;
+	        for ($i = 0; $i < $n; $i++)
+			{		
+			$C = pack("H*",$this->encrypt_ecb($CB));
+			$Y.= $this->SB(128, $X, $i * 16) ^ $C;	            	
+			$CB = $this->Inc(32, $CB);
+			}	        	
+	        $Xn = $this->SB(null, $X, $n * 128);
+		$C = pack("H*",$this->encrypt_ecb($CB));
+	        $Y.= $Xn ^ $this->SB($this->gLength($Xn), $C);		
+	        return $Y;
 	    	}
 	
 	function Hash($H, $X)
@@ -832,14 +817,13 @@ class RIJNDAEL_CBC
 		
 		$H is the hash subkey
 		$X bit string such that len(X) = 128m for some positive integer m
-		*/
-	        $Y = [];
-	        $Y[0] = str_pad('', 16, "\0");
+		*/	  				
+	        $Y = str_pad('', 16, "\0");
 	        $nblocks = (int) (mb_strlen($X, '8bit') / 16);
-	        for ($i = 1; $i <= $nblocks; $i++) 
-	            $Y[$i] = $this->GMUL($Y[$i - 1] ^ $this->SB(128, $X, ($i - 1) * 16), $H);	        
-	
-	        return $Y[$nblocks];
+	        for ($i = 0; $i < $nblocks; $i++) 
+	            $Y = $this->GMUL($Y ^ $this->SB(128, $X, $i * 16), $H);
+		    	        	
+	        return $Y;
 	    	} 		    
 				
 	function encrypt($tocrypt,$A="",$T=null,$taglength=128)
@@ -884,3 +868,60 @@ class RIJNDAEL_CBC
 		return rtrim($text, "\0"); // TO AVOID BAD MCRYPT PADDING		
 		}		 
 	}
+
+function testvectors()
+{	
+# AES GCM test vectors from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
+
+$AES_GCM_TEST_VECTORS=
+"AES-128-GCM:00000000000000000000000000000000:000000000000000000000000::::58e2fccefa7e3061367f1d57a4e7455a
+AES-128-GCM:00000000000000000000000000000000:000000000000000000000000:00000000000000000000000000000000:0388dace60b6a392f328c2b971b2fe78::ab6e47d42cec13bdf53a67b21257bddf
+AES-128-GCM:feffe9928665731c6d6a8f9467308308:cafebabefacedbaddecaf888:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255:42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091473f5985::4d5c2af327cd64a62cf35abd2ba6fab4
+AES-128-GCM:feffe9928665731c6d6a8f9467308308:cafebabefacedbaddecaf888:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39:42831ec2217774244b7221b784d0d49ce3aa212f2c02a4e035c17e2329aca12e21d514b25466931c7d8f6a5aac84aa051ba30b396a0aac973d58e091:feedfacedeadbeeffeedfacedeadbeefabaddad2:5bc94fbc3221a5db94fae95ae7121a47
+AES-128-GCM:feffe9928665731c6d6a8f9467308308:cafebabefacedbad:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39:61353b4c2806934a777ff51fa22a4755699b2a714fcdc6f83766e5f97b6c742373806900e49f24b22b097544d4896b424989b5e1ebac0f07c23f4598:feedfacedeadbeeffeedfacedeadbeefabaddad2:3612d2e79e3b0785561be14aaca2fccb
+AES-128-GCM:feffe9928665731c6d6a8f9467308308:9313225df88406e555909c5aff5269aa6a7a9538534f7da1e4c303d2a318a728c3c0c95156809539fcf0e2429a6b525416aedbf5a0de6a57a637b39b:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39:8ce24998625615b603a033aca13fb894be9112a5c3a211a8ba262a3cca7e2ca701e4a9a4fba43c90ccdcb281d48c7c6fd62875d2aca417034c34aee5:feedfacedeadbeeffeedfacedeadbeefabaddad2:619cc5aefffe0bfa462af43c1699d050
+AES-256-GCM:0000000000000000000000000000000000000000000000000000000000000000:000000000000000000000000::::530f8afbc74536b9a963b4f1c4cb738b
+AES-256-GCM:0000000000000000000000000000000000000000000000000000000000000000:000000000000000000000000:00000000000000000000000000000000:cea7403d4d606b6e074ec5d3baf39d18::d0d1c8a799996bf0265b98b5d48ab919
+AES-256-GCM:feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308:cafebabefacedbaddecaf888:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255:522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662898015ad::b094dac5d93471bdec1a502270e3cc6c
+AES-256-GCM:feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308:cafebabefacedbaddecaf888:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39:522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662:feedfacedeadbeeffeedfacedeadbeefabaddad2:76fc6ece0f4e1768cddf8853bb2d551b
+AES-256-GCM:feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308:cafebabefacedbad:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39:c3762df1ca787d32ae47c13bf19844cbaf1ae14d0b976afac52ff7d79bba9de0feb582d33934a4f0954cc2363bc73f7862ac430e64abe499f47c9b1f:feedfacedeadbeeffeedfacedeadbeefabaddad2:3a337dbf46a792c45e454913fe2ea8f2
+AES-256-GCM:feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308:9313225df88406e555909c5aff5269aa6a7a9538534f7da1e4c303d2a318a728c3c0c95156809539fcf0e2429a6b525416aedbf5a0de6a57a637b39b:d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39:5a8def2f0c9e53f1f75d7853659e2a20eeb2b22aafde6419a058ab4f6f746bf40fc0c3b780f244452da3ebf1c5d82cdea2418997200ef82e44ae7e3f:feedfacedeadbeeffeedfacedeadbeefabaddad2:a44a8266ee1c8eb0c8b5d4cf5ae9f19a
+AES-128-GCM:00000000000000000000000000000000:000000000000000000000000:::d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662898015ad:5fea793a2d6f974d37e68e0cb8ff9492
+AES-128-GCM:00000000000000000000000000000000:000000000000000000000000:000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000:0388dace60b6a392f328c2b971b2fe78f795aaab494b5923f7fd89ff948bc1e0200211214e7394da2089b6acd093abe0::9dd0a376b08e40eb00c35f29f9ea61a4
+AES-128-GCM:00000000000000000000000000000000:000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000:0388dace60b6a392f328c2b971b2fe78f795aaab494b5923f7fd89ff948bc1e0200211214e7394da2089b6acd093abe0c94da219118e297d7b7ebcbcc9c388f28ade7d85a8ee35616f7124a9d5270291::98885a3a22bd4742fe7b72172193b163
+AES-128-GCM:00000000000000000000000000000000:000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000:0388dace60b6a392f328c2b971b2fe78f795aaab494b5923f7fd89ff948bc1e0200211214e7394da2089b6acd093abe0c94da219118e297d7b7ebcbcc9c388f28ade7d85a8ee35616f7124a9d527029195b84d1b96c690ff2f2de30bf2ec89e00253786e126504f0dab90c48a30321de3345e6b0461e7c9e6c6b7afedde83f40::cac45f60e31efd3b5a43b98a22ce1aa1
+AES-128-GCM:00000000000000000000000000000000:ffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000:000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000:56b3373ca9ef6e4a2b64fe1e9a17b61425f10d47a75a5fce13efc6bc784af24f4141bdd48cf7c770887afd573cca5418a9aeffcd7c5ceddfc6a78397b9a85b499da558257267caab2ad0b23ca476a53cb17fb41c4b8b475cb4f3f7165094c229c9e8c4dc0a2a5ff1903e501511221376a1cdb8364c5061a20cae74bc4acd76ceb0abc9fd3217ef9f8c90be402ddf6d8697f4f880dff15bfb7a6b28241ec8fe183c2d59e3f9dfff653c7126f0acb9e64211f42bae12af462b1070bef1ab5e3606::566f8ef683078bfdeeffa869d751a017
+AES-128-GCM:843ffcf5d2b72694d19ed01d01249412:dbcca32ebf9b804617c3aa9e:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f:6268c6fa2a80b2d137467f092f657ac04d89be2beaa623d61b5a868c8f03ff95d3dcee23ad2f1ab3a6c80eaf4b140eb05de3457f0fbc111a6b43d0763aa422a3013cf1dc37fe417d1fbfc449b75d4cc5:00000000000000000000000000000000101112131415161718191a1b1c1d1e1f:3b629ccfbc1119b7319e1dce2cd6fd6d";
+
+
+$x=new RIJNDAEL_CBC; 
+
+$n=0;
+
+ECHO "AES GCM test vectors from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf \n\n";
+
+foreach (explode("\n",$AES_GCM_TEST_VECTORS) as $TVECTOR)
+	{
+	ECHO "..................................TEST CASE ".++$n."\n\n";
+	$TVECTOR=array_slice(EXPLODE(':',$TVECTOR),1);
+	$K=$TVECTOR[0];
+	$IV=$TVECTOR[1];
+	$P=$TVECTOR[2];
+	$A=$TVECTOR[4];
+	$CTEST=$TVECTOR[3];
+	$TTEST=$TVECTOR[5];
+	
+	ECHO "K $K\nP $P\nIV $IV\nA $A\nVALID C $CTEST\nVALID T $TTEST\n\n";
+		
+	$x->init("gcm",$K,$IV,16);
+	
+	list($C, $T) = $x->encrypt($P, $A, "",128);
+	
+	echo "COMPUTED C $C\nCOMPUTED T $T\n\n";
+	
+	list($P, $T) = $x->decrypt($C, $A, $T,128);
+
+	echo "DECRYPTED P ".bin2hex($P)."\nDECRYPTED T $T\n\n";	
+	}
+}
+testvectors();
