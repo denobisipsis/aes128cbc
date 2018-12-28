@@ -207,14 +207,6 @@ class RIJNDAEL_CBC
 		
 		$this->sbox=$sbox;
 		}
-
-	function multiply($a)
-		{
-		$hi_bit_set = $a & 0x80;
-		$a <<= 1;
-		if($hi_bit_set == 0x80) $a ^= 0x1b;
-		return $a % 256;	
-		}
 						
 	function sub_byte($byte,$xor="")
 		{
@@ -268,23 +260,15 @@ class RIJNDAEL_CBC
 			}			
 		$this->keys=$key_expansion;
 		}			
-		
-	function galois_multiplication($a,$b="") 
+
+	function multiply($a)
 		{
-		// FOR COLUMNS MIXING
-		
-		// reference https://www.samiam.org/galois.html
-		
-		$p = 0;
-		for($c = 0; $c < 8; $c++) 
-			{
-			if(($b & 1) == 1) $p ^= $a;
-			$a=$this->multiply($a);			
-			$b >>= 1;
-			}		
-		return ($p % 256);
+		$hi_bit_set = $a & 0x80;
+		$a <<= 1;
+		if($hi_bit_set == 0x80) $a ^= 0x1b;
+		return $a % 256;	
 		}
-    
+		    
 	function block_encrypt($block,$xor="")
 		{
 		$keys = $this->keys;
@@ -297,8 +281,7 @@ class RIJNDAEL_CBC
 		
 		// XOR IV IF PRESENT OR IV=LAST ENCRYPTED BLOCK
 							
-		if ($xor)
-			{$temp=array();for ($g=0;$g<$this->Nb*4;$g++) {$temp[]=$state[$g] ^ $xor[$g];}$state=$temp;}
+		if ($xor) {$temp=array();for ($g=0;$g<$this->Nb*4;$g++) {$temp[]=$state[$g] ^ $xor[$g];}$state=$temp;}
 
 		/**
 		https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
@@ -438,7 +421,9 @@ class RIJNDAEL_CBC
 										         				
 	function encrypt_cbc($tocrypt,$ecb=0)
 		{
-		if (!$ecb) $tocrypt=$this->pad($tocrypt);							
+		// no pad if mode gcm
+		if (!$this->gcm_tag_length)
+		$tocrypt=$this->pad($tocrypt);							
 		$tocrypt=bin2hex($tocrypt);	
 		
 		$iv = array_values(unpack("C*",pack("H*",$this->iv)));	
@@ -705,6 +690,19 @@ class RIJNDAEL_CBC
 
 	function GMUL($X, $Y)
 	    	{
+		$Y=array_values(unpack("C*",$Y));		
+		$X=array_values(unpack("C*",$X));
+		
+		$Ztemp=$this->galois_multiplication($X,$Y);
+		
+		$Z="";
+		foreach ($Ztemp as $z) $Z.=sprintf("%02x",$z);
+		
+	        return pack("H*",$Z);
+	    	}
+    
+	function galois_multiplication($Y,$X) 
+		{		
 		/**
 		6.3 Multiplication Operation on Blocks 
 		
@@ -735,57 +733,98 @@ class RIJNDAEL_CBC
 		4. Return Z128.
 		
 		As you see is better
-		
+			Zi+1 =  Zi ^ Vi		if xi =1
 			Vi+1 = 
 				Vi >>1 		
 		 		Vi ^ R 		if LSB1(Vi) = 1
+				 
+		for s=1 special case
+		
+		Constant R dependes on algebraical analysis.
+		See http://www.hpl.hp.com/techreports/98/HPL-98-135.pdf
+		
+		A table of low-weight irreducible polynomials over the
+		finite field F2 is presented. For each integer n in the
+		range 2 = n = 10,000, a binary irreducible polynomial
+		f(x) of degree n and minimum posible weight is listed.
+		Among those of minimum weight, the polynomial
+		listed is such that the degree of f(x) – x
+		n is lowest
+		(similarly, subsequent lower degrees are minimized in
+		case of ties). 
+					
+		- for 128 bits 128,7,2,1 -> x^128 + x^7 + x^2 + x^1 + 1 
+		
+			generator for the isomorphism of GF(2^128)
+			equivalent to the bit vector (1 || 120"0" || 10000111). (only exponents below 8)
+			(
+			Where each bit reflects a power of "x" appearing in the polynomial.
+			i.e.: b7-b6-b5-b4 b3-b2-b1-b0
+			      1   0  0  0  0  1  1  1
+			)
+			
+			10000111 is 0xE1 (little-endian fashion) or 0x87 (big-endian)
+			
+		- for 8 bits     8,4,3,1 -> x^8   + x^4 + x^3 + x^1 + 1 (1=x^0)
+			generator for the isomorphism of GF(2^8)
+			(
+			i.e.: b7-b6-b5-b4 b3-b2-b1-b0
+			      0   0  0  1  1  0  1  1
+			)
+			
+			00011011 is 0xD8 (little-endian fashion) or 0x1B (big-endian)			
+			
 		*/
 		
-		$parts = str_split($X, 4);	
-		$V=$Y=array_values(unpack("C*",$Y));
+		if (!is_array($X)) $X=array($X);
+		if (!is_array($Y)) $Y=array($Y);
 		
-		// CONVERT X TO BINARY
+		$V=$Y;
 		
-	  	$c=0;$X="";
-	    	while ($c < sizeof($parts)) 
-	    		{
-	    		$d=unpack("n*",$parts[$c]);
-	    		$X.=sprintf("%032b",($d[2]+($d[1] * 0x010000)));
-	    		$c++;
-	    		}  
+		$s=sizeof($X);		
 		
-	    	$R      = 0xE1;  //  constant within the algorithm for the block multiplication operation   
-	    	$mask   = 0x80;        
-	    	$Ztemp=str_split(str_repeat("0",16));     
-	          
-	    	for($i=0;$i<128;$i++)
-		    	{ 
-		        if ($X[$i])	for($j=0;$j<16;$j++) $Ztemp[$j]^=$V[$j]; 
+		if ($s==16) $R=0xe1;
+		else        $R=0x1b; // same as RCON
+		
+		$p=str_split(str_repeat("0",$s)); 
+		
+		for($i = 0; $i <$s; $i++) 
+			{
+			if ($s==1) $f=$X[$i]; else
+			$f=bindec(strrev(sprintf("%08b",$X[$i]))); // to use with little endian						
 			
-			// SAVE V-LSB
-				          				
-			$LSB=$V[15];
-			
-			// RIGHTSHIFT V
-			
-			$V[15]>>=1;			
-		        for($j=1;$j<16;$j++)
-		            {			
-		            if ($V[15-$j] & 1)	$V[16-$j] |= 0x80;				
-		            $V[15-$j]>>=1;          
-		            }
-			
-			// CHECK IF V-LSB TO XOR
-				    		
-		        if ($LSB & 1)	$V[0]^=$R;  				
-		        if(($mask >>=1)==0) $mask=0x80;
-		    	}
-	
-		$Z="";foreach ($Ztemp as $z) $Z.=sprintf("%02x",$z);
-			    		
-	        return pack("H*",$Z);
-	    	}
-	    	           				
+			for ($m=0;$m<8;$m++)
+				{	 
+				if ($f & 1)	for($j=0;$j<$s;$j++) $p[$j]^=$V[$j] ; 
+
+				if ($s==1)						
+					$V[0]=$this->multiply($V[0]);									
+				else
+					{				
+					$LSB=$V[$s-1];
+					
+					$V[$s-1]>>=1;	
+							
+				        for($j=1;$j<$s;$j++)
+				            {			
+				            if ($V[$s-1-$j] & 1)
+					    	$V[$s-$j] |= 0x80;
+						    				
+				            $V[$s-1-$j]>>=1;          
+				            }
+					    
+					if ($LSB & 1)	
+							$V[0]^=$R;
+					}
+				
+			        $f>>=1;
+			        }
+			}
+		
+		if ($s==1) $p=implode($p) % 256;
+		return $p;
+		}
+			    	           				
 	function GCTR($K, $key_length, $ICB, $X)
 	    	{
 		/**
@@ -869,7 +908,7 @@ class RIJNDAEL_CBC
 		}		 
 	}
 
-function testvectors()
+function testvectors_gcm()
 {	
 # AES GCM test vectors from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
 
@@ -924,4 +963,45 @@ foreach (explode("\n",$AES_GCM_TEST_VECTORS) as $TVECTOR)
 	echo "DECRYPTED P ".bin2hex($P)."\nDECRYPTED T $T\n\n";	
 	}
 }
-testvectors();
+testvectors_gcm();
+function checkmodes()
+	{
+	$modes=array("ecb"=>1,"cbc"=>2,"ctr"=>-1,"cfb"=>3,"ofb"=>4);
+
+	$text="RIJNDAEL_CBRIJNDAEL_CBRIJNDAEL_CBRIJNDAEL_CB";
+	$key32="f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
+	$key40=$key32.substr($key32,24);
+	$key48=$key32.substr($key32,16);
+	$key56=$key32.substr($key32,8);
+	$key64=$key32.$key32;
+	$key128=$key64.$key64;
+	
+	$keys=array("k32"=>$key32,"k40"=>$key40,"k48"=>$key48,"k56"=>$key56,"k64"=>$key64);
+	$x=new RIJNDAEL_CBC;
+	
+
+	
+	foreach ($modes as $mode=>$mod)
+		{
+
+		echo "\n\n$mode \n\n";
+		foreach ($keys as $nkey=>$key)
+			{
+			echo "\n\n key ".(strlen($key)*4)."\n\n";
+			for($block_size=16;$block_size<=32;$block_size+=4)
+				{
+				echo "BLOCK SIZE ".($block_size*8)."\n";
+				$iv="f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
+								
+				$x->init($mode,$key,$iv,$block_size); 
+				echo " 1 ".($r=$x->encrypt($text))."\n";
+				
+				echo " 1 ".($x->decrypt($r))."\n";
+				
+			
+				}
+			
+			}
+		}
+	}
+checkmodes();
